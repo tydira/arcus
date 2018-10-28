@@ -5,7 +5,7 @@ authors = ["Justin Krueger <justin@kroo.gs>"]
 license = "MIT"
 repository = "https://github.com/kroogs/arcus"
 description = "Decorates stdin with gradients made of 24-bit ANSI color codes."
-keywords = ["stdin", "stdout", "color", "gradient", "ansi", "interpolate", "24-bit", "24bit"]
+keywords = ["color", "gradient", "ansi", "24-bit"]
 
 [dependencies]
 ansi_term = "0.11"
