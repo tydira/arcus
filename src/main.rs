@@ -19,21 +19,15 @@ use unicode_segmentation::UnicodeSegmentation;
 type Colors = Vec<Vec<u8>>;
 
 fn decode_colors(colors: Vec<&str>) -> Colors {
-    let output = &mut Colors::new();
-
-    for color in colors {
-        match hex::decode(color.replace("#", "").as_bytes()) {
-            Ok(value) => {
-                output.push(value);
-            }
-            Err(_) => {
+    colors
+        .iter()
+        .map(|color| {
+            hex::decode(color.replace("#", "").as_bytes()).unwrap_or_else(|_| {
                 eprintln!("error: Invalid color '{}'", color);
                 process::exit(2);
-            }
-        }
-    }
-
-    return output.to_vec();
+            })
+        })
+        .collect()
 }
 
 fn calculate_delta(from: Vec<u8>, to: Vec<u8>) -> Vec<i16> {
