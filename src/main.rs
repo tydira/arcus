@@ -22,8 +22,7 @@ fn decode_colors(colors: Vec<&str>) -> Colors {
     let output = &mut Colors::new();
 
     for color in colors {
-        let color = color.replace("#", "");
-        match hex::decode(color.as_bytes()) {
+        match hex::decode(color.replace("#", "").as_bytes()) {
             Ok(value) => {
                 output.push(value);
             }
@@ -51,16 +50,16 @@ fn decorate_string<'a>(input: String, colors: Colors) -> String {
     let total_colors: &mut Vec<ansi_term::Color> = &mut vec![];
 
     let total_steps = graphemes.len() as f64;
-    let colors_length = colors.len() as f64;
-    let distance = (total_steps / (colors_length - 1.0)).floor() as usize;
+    let colors_length = colors.len();
+    let distance = (total_steps / (colors_length as f64 - 1.0)).floor() as i16;
 
     for (i, color) in colors.iter().enumerate() {
-        if i + 1 < colors_length as usize {
+        if i + 1 < colors_length {
             let d = calculate_delta(color.to_vec(), colors[i + 1].to_vec());
 
-            let r_step = d[0] / distance as i16;
-            let g_step = d[1] / distance as i16;
-            let b_step = d[2] / distance as i16;
+            let r_step = d[0] / distance;
+            let g_step = d[1] / distance;
+            let b_step = d[2] / distance;
 
             for j in 0..distance {
                 total_colors.push(RGB(
