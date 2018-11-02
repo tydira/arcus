@@ -10,8 +10,7 @@ use ansi_term::Colour::RGB;
 use clap::{App, Arg};
 use unicode_segmentation::UnicodeSegmentation;
 
-type Color = Vec<u8>;
-type Colors = Vec<Color>;
+type Colors = Vec<Vec<u8>>;
 type GraphemeColors<'a> = Vec<(&'a str, ansi_term::Color)>;
 
 fn decode_colors(colors: Vec<&str>) -> Colors {
