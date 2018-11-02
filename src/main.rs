@@ -4,19 +4,15 @@ extern crate hex;
 extern crate unicode_segmentation;
 
 use std::io;
-use std::process;
-use std::string::ToString;
+use std::process::exit;
 
 use ansi_term::Colour::RGB;
-use ansi_term::{ANSIString, ANSIStrings};
 use clap::{App, Arg};
 use unicode_segmentation::UnicodeSegmentation;
 
-// Hi there,
-// I'm still new to Rust, so please suggest improvements.
-// - Justin (<3)
-
-type Colors = Vec<Vec<u8>>;
+type Color = Vec<u8>;
+type Colors = Vec<Color>;
+type GraphemeColors<'a> = Vec<(&'a str, ansi_term::Color)>;
 
 fn decode_colors(colors: Vec<&str>) -> Colors {
     colors
@@ -24,52 +20,64 @@ fn decode_colors(colors: Vec<&str>) -> Colors {
         .map(|color| {
             hex::decode(color.replace("#", "").as_bytes()).unwrap_or_else(|_| {
                 eprintln!("error: Invalid color '{}'", color);
-                process::exit(2);
+                exit(1);
             })
         })
         .collect()
 }
 
-fn calculate_delta(from: Vec<u8>, to: Vec<u8>) -> Vec<i16> {
+fn calculate_deltas(from: &Vec<u8>, to: &Vec<u8>) -> Vec<i16> {
     from.iter()
         .zip(to.iter())
-        .map(|(&l, &r)| r as i16 - l as i16)
-        .collect::<Vec<i16>>()
+        .map(|(&f, &t)| t as i16 - f as i16)
+        .collect::<Vec<_>>()
 }
 
-fn decorate_string<'a>(input: String, colors: Colors) -> String {
-    let output: &mut Vec<ANSIString> = &mut vec![];
+fn interpolate<'a>(input: &'a str, colors: Colors) -> GraphemeColors {
+    let graphemes = input.graphemes(true);
+    let grapheme_count = graphemes.clone().collect::<Vec<_>>().len();
 
-    let graphemes: Vec<&str> = input.graphemes(true).collect();
-    let total_colors: &mut Vec<ansi_term::Color> = &mut vec![];
+    let color_count = colors.len() - 1;
+    let color_distance = grapheme_count / color_count;
+    let color_remainder = grapheme_count % color_count;
 
-    let total_steps = graphemes.len() as f64;
-    let colors_length = colors.len();
-    let distance = (total_steps / (colors_length as f64 - 1.0)).floor() as i16;
+    let interpolated = colors
+        .iter()
+        .enumerate()
+        .map(|(i, color)| {
+            if i < color_count {
+                let steps = calculate_deltas(color, &colors[i + 1])
+                    .iter()
+                    .map(|&d| d / color_distance as i16)
+                    .collect::<Vec<_>>();
 
-    for (i, color) in colors.iter().enumerate() {
-        if i + 1 < colors_length {
-            let d = calculate_delta(color.to_vec(), colors[i + 1].to_vec());
-
-            let r_step = d[0] / distance;
-            let g_step = d[1] / distance;
-            let b_step = d[2] / distance;
-
-            for j in 0..distance {
-                total_colors.push(RGB(
-                    color[0] + (r_step * j as i16) as u8,
-                    color[1] + (g_step * j as i16) as u8,
-                    color[2] + (b_step * j as i16) as u8,
-                ));
+                (0..color_distance)
+                    .map(|i| {
+                        let i = i as i16;
+                        RGB(
+                            color[0] + (steps[0] * i) as u8,
+                            color[1] + (steps[1] * i) as u8,
+                            color[2] + (steps[2] * i) as u8,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                let last = colors.last().unwrap().to_vec();
+                (0..color_remainder)
+                    .map(|_| RGB(last[0], last[1], last[2]))
+                    .collect::<Vec<_>>()
             }
-        }
-    }
+        })
+        .flatten()
+        .collect::<Vec<_>>();
 
-    for (i, c) in total_colors.iter().enumerate() {
-        output.push(c.paint(graphemes[i]));
-    }
+    graphemes.zip(interpolated).collect::<Vec<_>>()
+}
 
-    return ANSIStrings(output).to_string();
+fn output(input: GraphemeColors) {
+    input.iter().for_each(|(grapheme, color)| {
+        print!("{}", color.paint(*grapheme));
+    })
 }
 
 fn main() {
@@ -90,17 +98,15 @@ fn main() {
     let colors = decode_colors(matches.values_of("colors").unwrap().collect());
     if colors.len() < 2 {
         eprintln!("error: Requires at least 2 color arguments");
-        process::exit(1);
+        exit(2);
     }
 
-    let mut input = String::new();
-    match io::stdin().read_line(&mut input) {
-        Ok(_) => {
-            print!("{}", decorate_string(input, colors));
-        }
+    let input = &mut String::new();
+    match io::stdin().read_line(input) {
+        Ok(_) => output(interpolate(input, colors)),
         Err(error) => {
-            println!("error: {}", error);
-            process::exit(3);
+            eprintln!("error: {}", error);
+            exit(3);
         }
     }
 }
