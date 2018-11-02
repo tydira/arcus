@@ -33,7 +33,7 @@ fn calculate_deltas(from: &Vec<u8>, to: &Vec<u8>) -> Vec<i16> {
         .collect::<Vec<_>>()
 }
 
-fn interpolate<'a>(input: &'a str, colors: Colors) -> GraphemeColors {
+fn interpolate(input: &str, colors: Colors) -> GraphemeColors {
     let graphemes = input.graphemes(true);
     let grapheme_count = graphemes.clone().collect::<Vec<_>>().len();
 
