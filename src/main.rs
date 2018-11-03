@@ -29,7 +29,7 @@ fn calculate_deltas(from: &Vec<u8>, to: &Vec<u8>) -> Vec<i16> {
     from.iter()
         .zip(to.iter())
         .map(|(&f, &t)| t as i16 - f as i16)
-        .collect::<Vec<_>>()
+        .collect()
 }
 
 fn interpolate(input: &str, colors: Colors) -> GraphemeColors {
@@ -70,7 +70,7 @@ fn interpolate(input: &str, colors: Colors) -> GraphemeColors {
         .flatten()
         .collect::<Vec<_>>();
 
-    graphemes.zip(interpolated).collect::<Vec<_>>()
+    graphemes.zip(interpolated).collect()
 }
 
 fn output(input: GraphemeColors) {
