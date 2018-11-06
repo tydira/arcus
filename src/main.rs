@@ -37,8 +37,6 @@ fn interpolate(colors: Colors, length: usize) -> Colors {
     let segment_size = length / distance;
     let segment_remainder = length % distance;
 
-    println!("{} {} {}", distance, segment_size, segment_remainder);
-
     colors
         .iter()
         .enumerate()
