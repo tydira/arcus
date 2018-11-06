@@ -3,17 +3,18 @@ extern crate clap;
 extern crate hex;
 extern crate unicode_segmentation;
 
-use std::io;
+use std::io::stdin;
+use std::iter::repeat;
 use std::process::exit;
 
 use ansi_term::Colour::RGB;
 use clap::{App, Arg};
 use unicode_segmentation::UnicodeSegmentation;
 
-type Colors = Vec<Vec<u8>>;
-type GraphemeColors<'a> = Vec<(&'a str, ansi_term::Color)>;
+type Color = Vec<u8>;
+type Colors = Vec<Color>;
 
-fn decode_colors(colors: Vec<&str>) -> Colors {
+fn decode(colors: Vec<&str>) -> Colors {
     colors
         .iter()
         .map(|color| {
@@ -25,63 +26,56 @@ fn decode_colors(colors: Vec<&str>) -> Colors {
         .collect()
 }
 
-fn calculate_deltas(from: &Vec<u8>, to: &Vec<u8>) -> Vec<i16> {
+fn calculate_delta<'a>(from: &'a Color, to: &'a Color) -> impl Iterator<Item = i16> + 'a {
     from.iter()
         .zip(to.iter())
         .map(|(&f, &t)| t as i16 - f as i16)
-        .collect()
 }
 
-fn interpolate(input: &str, colors: Colors) -> GraphemeColors {
-    let graphemes = input.graphemes(true);
-    let grapheme_count = graphemes.clone().collect::<Vec<_>>().len();
+fn interpolate(colors: Colors, length: usize) -> Colors {
+    let distance = colors.len() - 1;
+    let segment_size = length / distance;
+    let segment_remainder = length % distance;
 
-    let color_count = colors.len() - 1;
-    let color_distance = grapheme_count / color_count;
-    let color_remainder = grapheme_count % color_count;
+    println!("{} {} {}", distance, segment_size, segment_remainder);
 
-    let interpolated = colors
+    colors
         .iter()
         .enumerate()
-        .map(|(i, color)| {
-            if i < color_count {
-                let steps = calculate_deltas(color, &colors[i + 1])
-                    .iter()
-                    .map(|&d| d / color_distance as i16)
-                    .collect::<Vec<_>>();
+        .map(|(i, color)| -> Vec<_> {
+            if i < distance {
+                let deltas: Vec<_> = calculate_delta(color, &colors[i + 1])
+                    .map(|d| d / segment_size as i16)
+                    .collect();
 
-                (0..color_distance)
-                    .map(|i| {
-                        let i = i as i16;
-                        RGB(
-                            color[0] + (steps[0] * i) as u8,
-                            color[1] + (steps[1] * i) as u8,
-                            color[2] + (steps[2] * i) as u8,
-                        )
+                (0..segment_size)
+                    .map(|j| {
+                        (0..3)
+                            .map(|n| color[n] + (deltas[n] * j as i16) as u8)
+                            .collect()
                     })
-                    .collect::<Vec<_>>()
+                    .collect()
             } else {
-                let last = colors.last().unwrap().to_vec();
-                (0..color_remainder)
-                    .map(|_| RGB(last[0], last[1], last[2]))
-                    .collect::<Vec<_>>()
+                let last = colors.last().unwrap();
+                repeat(last.to_vec()).take(segment_remainder).collect()
             }
         })
         .flatten()
-        .collect::<Vec<_>>();
-
-    graphemes.zip(interpolated).collect()
+        .collect()
 }
 
-fn output(input: GraphemeColors) {
-    input.iter().for_each(|(grapheme, color)| {
-        print!("{}", color.paint(*grapheme));
+fn output(graphemes: Vec<&str>, colors: Colors) {
+    graphemes.iter().enumerate().for_each(|(i, grapheme)| {
+        print!(
+            "{}",
+            RGB(colors[i][0], colors[i][1], colors[i][2]).paint(*grapheme)
+        );
     })
 }
 
 fn main() {
     let matches = App::new("arcus")
-        .version("0.1.0")
+        .version("0.2.0")
         .version_short("v")
         .author("Justin Krueger <justin@kroo.gs>")
         .about("Decorates stdin with gradients made of 24-bit ANSI color codes.")
@@ -94,15 +88,19 @@ fn main() {
         )
         .get_matches();
 
-    let colors = decode_colors(matches.values_of("colors").unwrap().collect());
+    let colors = decode(matches.values_of("colors").unwrap().collect());
     if colors.len() < 2 {
         eprintln!("error: Requires at least 2 color arguments");
         exit(2);
     }
 
     let input = &mut String::new();
-    match io::stdin().read_line(input) {
-        Ok(_) => output(interpolate(input, colors)),
+    match stdin().read_line(input) {
+        Ok(_) => {
+            let graphemes: Vec<_> = input.graphemes(true).collect();
+            let grapheme_count = graphemes.len();
+            output(graphemes, interpolate(colors, grapheme_count));
+        }
         Err(error) => {
             eprintln!("error: {}", error);
             exit(3);

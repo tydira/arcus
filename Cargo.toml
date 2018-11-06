@@ -1,11 +1,11 @@
 [package]
 name = "arcus"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Justin Krueger <justin@kroo.gs>"]
 license = "MIT"
 repository = "https://github.com/kroogs/arcus"
 description = "Decorates stdin with gradients made of 24-bit ANSI color codes."
-keywords = ["color", "gradient", "ansi", "24-bit"]
+keywords = ["color", "gradient", "ansi", "24-bit", "truecolor"]
 
 [dependencies]
 ansi_term = "0.11"
